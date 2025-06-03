@@ -1,0 +1,140 @@
+import 'package:flutter/material.dart';
+import '../models/hymn.dart';
+import '../services/hymn_service.dart';
+
+enum LanguagePreference { english, luhya, both }
+
+class HymnsPage extends StatefulWidget {
+  const HymnsPage({super.key});
+
+  @override
+  State<HymnsPage> createState() => _HymnsPageState();
+}
+
+class _HymnsPageState extends State<HymnsPage> {
+  final HymnService _hymnService = HymnService();
+  LanguagePreference _languagePreference = LanguagePreference.both;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Hymns Collection',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              DropdownButton<LanguagePreference>(
+                value: _languagePreference,
+                items: const [
+                  DropdownMenuItem(
+                    value: LanguagePreference.english,
+                    child: Text('English'),
+                  ),
+                  DropdownMenuItem(
+                    value: LanguagePreference.luhya,
+                    child: Text('Luhya'),
+                  ),
+                  DropdownMenuItem(
+                    value: LanguagePreference.both,
+                    child: Text('Both'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _languagePreference = value;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: StreamBuilder<List<Hymn>>(
+              stream: _hymnService.getHymns(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error: ${snapshot.error}'),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final hymns = snapshot.data ?? [];
+
+                return GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 1.5,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: hymns.length,
+                  itemBuilder: (context, index) {
+                    final hymn = hymns[index];
+                    return Card(
+                      elevation: 2,
+                      child: InkWell(
+                        onTap: () {
+                          // TODO: Navigate to hymn detail page
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Hymn ${hymn.hymnNumber}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                hymn.title,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_languagePreference == LanguagePreference.both) ...[
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'English & Luhya',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+} 
