@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import 'pages/hymns_page.dart';
+import 'package:obuyanzi_hymns/models/language_preference.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'pages/admin_create_hymn_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyD842SBt1afZVC5AOuSSYcd9OdMiGepX4k",
+      authDomain: "obuyanzi-hymns.firebaseapp.com",
+      projectId: "obuyanzi-hymns",
+      storageBucket: "obuyanzi-hymns.firebasestorage.app",
+      messagingSenderId: "939816131988",
+      appId: "1:939816131988:web:babe49ec07690c3b1a0381",
+    ),
+  );
   runApp(const ObuyanziHymnsApp());
 }
 
@@ -28,12 +45,36 @@ class ObuyanziHymnsApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const HomePage(),
+      routes: {
+        '/login': (context) => LoginPage(
+          onLogin: (user, role) async {
+            String? name;
+            if (role == 'admin') {
+              final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+              name = doc.data()?['name'] as String?;
+            }
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => HomePage(
+                  firebaseUser: user,
+                  userRole: role,
+                  userName: name,
+                ),
+              ),
+            );
+          },
+        ),
+      },
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final User? firebaseUser;
+  final String? userRole;
+  final String? userName;
+
+  const HomePage({super.key, this.firebaseUser, this.userRole, this.userName});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -42,12 +83,36 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _isSideNavExpanded = true;
   int _selectedIndex = 0;
+  String _userId = 'default_user'; // Temporary user ID for testing
+  User? _firebaseUser;
+  String? _userRole;
+  String? _userName;
+
+  @override
+  void initState() {
+    super.initState();
+    _firebaseUser = widget.firebaseUser;
+    _userRole = widget.userRole;
+    _userName = widget.userName;
+    if (_firebaseUser != null) {
+      _userId = _firebaseUser!.uid;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Obuyanzi Hymns'),
+        title: Row(
+          children: [
+            const Text('Obuyanzi Hymns'),
+            if (_userRole == 'admin' && _userName != null) ...[
+              const SizedBox(width: 16),
+              Text('Admin: $_userName', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400)),
+            ],
+          ],
+        ),
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -82,26 +147,45 @@ class _HomePageState extends State<HomePage> {
                 });
               },
             ),
-            destinations: const [
-              NavigationRailDestination(
+            destinations: [
+              const NavigationRailDestination(
                 icon: Icon(Icons.home),
                 label: Text('Home'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.book),
                 label: Text('Hymns'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.favorite),
                 label: Text('Favorites'),
               ),
-              NavigationRailDestination(
+              const NavigationRailDestination(
                 icon: Icon(Icons.history),
                 label: Text('Recent'),
               ),
+              if (_userRole == 'admin')
+                const NavigationRailDestination(
+                  icon: Icon(Icons.add),
+                  label: Text('Create Hymn'),
+                ),
             ],
             selectedIndex: _selectedIndex,
             onDestinationSelected: (int index) {
+              // If admin and last destination, open AdminCreateHymnPage
+              if (_userRole == 'admin' && index == 4) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AdminCreateHymnPage(
+                      userId: _userId,
+                      userRole: _userRole,
+                      userName: _userName,
+                    ),
+                  ),
+                );
+                return;
+              }
               setState(() {
                 _selectedIndex = index;
               });
@@ -176,7 +260,7 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       case 1:
-        return const HymnsPage();
+        return HymnsPage(userId: _userId);
       case 2:
         return const Center(child: Text('Favorites Page'));
       case 3:
@@ -217,6 +301,85 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LoginPage extends StatefulWidget {
+  final void Function(User user, String role) onLogin;
+  const LoginPage({super.key, required this.onLogin});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _login() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      final user = credential.user;
+      if (user != null) {
+        // Fetch user role from Firestore
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final role = doc.data()?['role'] ?? 'user';
+        widget.onLogin(user, role);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login successful! Welcome, $role.')),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _error = e.message;
+      });
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Login')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            TextField(
+              controller: _passwordController,
+              decoration: const InputDecoration(labelText: 'Password'),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            if (_error != null)
+              Text(_error!, style: const TextStyle(color: Colors.red)),
+            ElevatedButton(
+              onPressed: _loading ? null : _login,
+              child: _loading ? const CircularProgressIndicator() : const Text('Login'),
             ),
           ],
         ),

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/hymn.dart';
 import '../services/hymn_service.dart';
+import 'hymn_detail_page.dart';
 
 enum LanguagePreference { english, luhya, both }
 
 class HymnsPage extends StatefulWidget {
-  const HymnsPage({super.key});
+  final String userId;
+
+  const HymnsPage({
+    super.key,
+    required this.userId,
+  });
 
   @override
   State<HymnsPage> createState() => _HymnsPageState();
@@ -91,7 +97,15 @@ class _HymnsPageState extends State<HymnsPage> {
                       elevation: 2,
                       child: InkWell(
                         onTap: () {
-                          // TODO: Navigate to hymn detail page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => HymnDetailPage(
+                                hymnId: hymn.id,
+                                userId: widget.userId,
+                              ),
+                            ),
+                          );
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -99,7 +113,7 @@ class _HymnsPageState extends State<HymnsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                'Hymn ${hymn.hymnNumber}',
+                                'Hymn ${hymn.number}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -107,11 +121,17 @@ class _HymnsPageState extends State<HymnsPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                hymn.title,
+                                _languagePreference == LanguagePreference.english
+                                    ? hymn.titleEnglish ?? ''
+                                    : _languagePreference == LanguagePreference.luhya
+                                        ? hymn.titleLuhya
+                                        : '${hymn.titleEnglish ?? ''}\n${hymn.titleLuhya}',
                                 style: const TextStyle(
                                   fontSize: 16,
                                 ),
                                 textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               if (_languagePreference == LanguagePreference.both) ...[
                                 const SizedBox(height: 8),
