@@ -6,7 +6,18 @@ class AdminCreateHymnPage extends StatefulWidget {
   final String userId;
   final String? userRole;
   final String? userName;
-  const AdminCreateHymnPage({super.key, required this.userId, this.userRole, this.userName});
+  final bool showAppBar;
+  final VoidCallback onToggleTheme;
+  final ThemeMode themeMode;
+  const AdminCreateHymnPage({
+    super.key,
+    required this.userId,
+    this.userRole,
+    this.userName,
+    this.showAppBar = true,
+    required this.onToggleTheme,
+    required this.themeMode,
+  });
 
   @override
   State<AdminCreateHymnPage> createState() => _AdminCreateHymnPageState();
@@ -46,7 +57,7 @@ class _AdminCreateHymnPageState extends State<AdminCreateHymnPage> {
   void _addVerse() async {
     final verse = await showDialog<Verse>(
       context: context,
-      builder: (context) => _VerseDialog(),
+      builder: (context) => _VerseDialog(choruses: _choruses),
     );
     if (verse != null) {
       setState(() {
@@ -104,90 +115,163 @@ class _AdminCreateHymnPageState extends State<AdminCreateHymnPage> {
   @override
   Widget build(BuildContext context) {
     if (!isAdmin) {
-      return const Scaffold(
-        body: Center(child: Text('Access denied. Admins only.')),
-      );
+      return widget.showAppBar
+        ? const Scaffold(
+            body: Center(child: Text('Access denied. Admins only.')),
+          )
+        : const Center(child: Text('Access denied. Admins only.'));
     }
-    return Scaffold(
-      appBar: AppBar(title: Text('Create Hymn (Admin)${widget.userName != null ? ' - ${widget.userName}' : ''}')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _numberController,
-                decoration: const InputDecoration(labelText: 'Hymn Number'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+    final formContent = Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          children: [
+            TextFormField(
+              controller: _numberController,
+              decoration: const InputDecoration(labelText: 'Hymn Number'),
+              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+            ),
+            TextFormField(
+              controller: _titleLuhyaController,
+              decoration: const InputDecoration(labelText: 'Title (Luhya)'),
+              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+            ),
+            TextFormField(
+              controller: _titleEnglishController,
+              decoration: const InputDecoration(labelText: 'Title (English, optional)'),
+            ),
+            TextFormField(
+              controller: _languageController,
+              decoration: const InputDecoration(labelText: 'Language'),
+              validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+            ),
+            TextFormField(
+              controller: _tagsController,
+              decoration: const InputDecoration(labelText: 'Tags (comma separated)'),
+            ),
+            SwitchListTile(
+              title: const Text('Has Changing Chorus'),
+              value: _hasChangingChorus,
+              onChanged: (v) => setState(() => _hasChangingChorus = v),
+            ),
+            TextFormField(
+              controller: _audioUrlController,
+              decoration: const InputDecoration(labelText: 'Audio URL (optional)'),
+            ),
+            TextFormField(
+              controller: _videoUrlController,
+              decoration: const InputDecoration(labelText: 'Video URL (optional)'),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              elevation: 2,
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Verses', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ..._verses.map((v) => ListTile(
+                          title: Text('Verse ${v.verseNumber}'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(v.contentLuhya, maxLines: 2, overflow: TextOverflow.ellipsis),
+                              if (v.chorusRef != null)
+                                Text(
+                                  'Chorus: ' + (() {
+                                    try {
+                                      return _choruses.firstWhere((c) => c.id == v.chorusRef).chorusNumber.toString();
+                                    } catch (e) {
+                                      return v.chorusRef!;
+                                    }
+                                  })(),
+                                  style: const TextStyle(fontSize: 12, color: Colors.amber),
+                                ),
+                            ],
+                          ),
+                        )),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _addVerse,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Verse'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              TextFormField(
-                controller: _titleLuhyaController,
-                decoration: const InputDecoration(labelText: 'Title (Luhya)'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+            ),
+            Card(
+              elevation: 2,
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Choruses', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ..._choruses.map((c) => ListTile(
+                          title: Text('Chorus ${c.chorusNumber}'),
+                          subtitle: Text(c.contentLuhya, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        )),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: _addChorus,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Chorus'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              TextFormField(
-                controller: _titleEnglishController,
-                decoration: const InputDecoration(labelText: 'Title (English, optional)'),
-              ),
-              TextFormField(
-                controller: _languageController,
-                decoration: const InputDecoration(labelText: 'Language'),
-                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _tagsController,
-                decoration: const InputDecoration(labelText: 'Tags (comma separated)'),
-              ),
-              SwitchListTile(
-                title: const Text('Has Changing Chorus'),
-                value: _hasChangingChorus,
-                onChanged: (v) => setState(() => _hasChangingChorus = v),
-              ),
-              TextFormField(
-                controller: _audioUrlController,
-                decoration: const InputDecoration(labelText: 'Audio URL (optional)'),
-              ),
-              TextFormField(
-                controller: _videoUrlController,
-                decoration: const InputDecoration(labelText: 'Video URL (optional)'),
-              ),
-              const SizedBox(height: 16),
-              Text('Verses', style: Theme.of(context).textTheme.titleMedium),
-              ..._verses.map((v) => ListTile(
-                    title: Text('Verse ${v.verseNumber}'),
-                    subtitle: Text(v.contentLuhya),
-                  )),
-              TextButton.icon(
-                onPressed: _addVerse,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Verse'),
-              ),
-              const SizedBox(height: 16),
-              Text('Choruses', style: Theme.of(context).textTheme.titleMedium),
-              ..._choruses.map((c) => ListTile(
-                    title: Text('Chorus ${c.chorusNumber}'),
-                    subtitle: Text(c.contentLuhya),
-                  )),
-              TextButton.icon(
-                onPressed: _addChorus,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Chorus'),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submit,
-                child: const Text('Submit Hymn'),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _submit,
+              child: const Text('Submit Hymn'),
+            ),
+          ],
         ),
       ),
     );
+    if (widget.showAppBar) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Create Hymn (Admin)${widget.userName != null ? ' - ${widget.userName}' : ''}'),
+          actions: [
+            IconButton(
+              icon: Icon(
+                widget.themeMode == ThemeMode.system
+                    ? Icons.brightness_auto
+                    : widget.themeMode == ThemeMode.light
+                        ? Icons.light_mode
+                        : Icons.dark_mode,
+              ),
+              tooltip: widget.themeMode == ThemeMode.system
+                  ? 'System Theme'
+                  : widget.themeMode == ThemeMode.light
+                      ? 'Light Theme'
+                      : 'Dark Theme',
+              onPressed: widget.onToggleTheme,
+            ),
+          ],
+        ),
+        body: formContent,
+      );
+    } else {
+      return formContent;
+    }
   }
 }
 
 class _VerseDialog extends StatefulWidget {
+  final List<Chorus> choruses;
+  const _VerseDialog({Key? key, required this.choruses}) : super(key: key);
   @override
   State<_VerseDialog> createState() => _VerseDialogState();
 }
@@ -196,14 +280,13 @@ class _VerseDialogState extends State<_VerseDialog> {
   final _verseNumberController = TextEditingController();
   final _contentLuhyaController = TextEditingController();
   final _contentEnglishController = TextEditingController();
-  final _chorusRefController = TextEditingController();
+  String? _selectedChorusId;
 
   @override
   void dispose() {
     _verseNumberController.dispose();
     _contentLuhyaController.dispose();
     _contentEnglishController.dispose();
-    _chorusRefController.dispose();
     super.dispose();
   }
 
@@ -220,17 +303,37 @@ class _VerseDialogState extends State<_VerseDialog> {
               decoration: const InputDecoration(labelText: 'Verse Number'),
               keyboardType: TextInputType.number,
             ),
-            TextField(
+            TextFormField(
               controller: _contentLuhyaController,
               decoration: const InputDecoration(labelText: 'Content (Luhya)'),
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
             ),
-            TextField(
+            TextFormField(
               controller: _contentEnglishController,
               decoration: const InputDecoration(labelText: 'Content (English, optional)'),
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
             ),
-            TextField(
-              controller: _chorusRefController,
-              decoration: const InputDecoration(labelText: 'Chorus Ref (optional)'),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _selectedChorusId,
+              decoration: const InputDecoration(labelText: 'Chorus (optional)'),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('No Chorus'),
+                ),
+                ...widget.choruses.map((chorus) => DropdownMenuItem<String>(
+                      value: chorus.id,
+                      child: Text('Chorus ${chorus.chorusNumber} - ${chorus.type.isNotEmpty ? chorus.type : ''}'),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedChorusId = value;
+                });
+              },
             ),
           ],
         ),
@@ -247,7 +350,7 @@ class _VerseDialogState extends State<_VerseDialog> {
               verseNumber: int.tryParse(_verseNumberController.text) ?? 1,
               contentLuhya: _contentLuhyaController.text,
               contentEnglish: _contentEnglishController.text.isNotEmpty ? _contentEnglishController.text : null,
-              chorusRef: _chorusRefController.text.isNotEmpty ? _chorusRefController.text : null,
+              chorusRef: _selectedChorusId,
             );
             Navigator.pop(context, verse);
           },
@@ -295,13 +398,17 @@ class _ChorusDialogState extends State<_ChorusDialog> {
               controller: _typeController,
               decoration: const InputDecoration(labelText: 'Type'),
             ),
-            TextField(
+            TextFormField(
               controller: _contentLuhyaController,
               decoration: const InputDecoration(labelText: 'Content (Luhya)'),
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
             ),
-            TextField(
+            TextFormField(
               controller: _contentEnglishController,
               decoration: const InputDecoration(labelText: 'Content (English, optional)'),
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
             ),
           ],
         ),

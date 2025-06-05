@@ -39,6 +39,11 @@ dependencies:
   firebase_auth: ^5.5.4
   provider: ^6.1.1
   intl: ^0.20.2
+  url_launcher: ^6.2.5
+  font_awesome_flutter: ^10.7.0
+  just_audio: ^0.9.36
+  video_player: ^2.8.6
+  audioplayers: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +66,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/icons/Icon-512.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -7,10 +7,14 @@ enum LanguagePreference { english, luhya, both }
 
 class HymnsPage extends StatefulWidget {
   final String userId;
+  final VoidCallback onToggleTheme;
+  final ThemeMode themeMode;
 
   const HymnsPage({
     super.key,
     required this.userId,
+    required this.onToggleTheme,
+    required this.themeMode,
   });
 
   @override
@@ -83,9 +87,16 @@ class _HymnsPageState extends State<HymnsPage> {
 
                 final hymns = snapshot.data ?? [];
 
+                int crossAxisCount = 3;
+                double width = MediaQuery.of(context).size.width;
+                if (width < 600) {
+                  crossAxisCount = 1;
+                } else if (width < 900) {
+                  crossAxisCount = 2;
+                }
                 return GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
                     childAspectRatio: 1.5,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
@@ -103,6 +114,8 @@ class _HymnsPageState extends State<HymnsPage> {
                               builder: (context) => HymnDetailPage(
                                 hymnId: hymn.id,
                                 userId: widget.userId,
+                                onToggleTheme: widget.onToggleTheme,
+                                themeMode: widget.themeMode,
                               ),
                             ),
                           );
@@ -111,6 +124,7 @@ class _HymnsPageState extends State<HymnsPage> {
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
                                 'Hymn ${hymn.number}',
@@ -118,6 +132,8 @@ class _HymnsPageState extends State<HymnsPage> {
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -141,6 +157,8 @@ class _HymnsPageState extends State<HymnsPage> {
                                     fontSize: 14,
                                     color: Colors.grey,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ],
